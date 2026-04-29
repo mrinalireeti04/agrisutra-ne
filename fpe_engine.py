@@ -108,7 +108,7 @@ if __name__ == "__main__":
 # ==========================================
 # FastAPI Integration Snippet
 # ==========================================
-\"\"\"
+"""
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
 from typing import Optional
@@ -137,4 +137,4 @@ def compute_fpe(req: FPERequest):
         return {"status": "success", "data": result}
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
-\"\"\"
+"""
