@@ -6,9 +6,6 @@ st.set_page_config(page_title="AgriSutra NE", layout="centered", initial_sidebar
 # Custom CSS for soft green theme
 st.markdown("""
 <style>
-    .stApp {
-        background-color: #f4fbf4;
-    }
     .stButton>button {
         width: 100%;
         background-color: #4CAF50;
@@ -23,24 +20,26 @@ st.markdown("""
         background-color: #45a049;
     }
     h1, h2, h3 {
-        color: #2e7d32;
+        color: #81c784;
     }
     .card {
-        background-color: white;
+        background-color: #262730;
         padding: 20px;
         border-radius: 10px;
-        box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+        box-shadow: 0 4px 8px rgba(0,0,0,0.3);
         text-align: center;
         border-top: 4px solid #4CAF50;
         margin-bottom: 20px;
+        color: white;
     }
     .voice-box {
-        background-color: #e8f5e9;
+        background-color: #1e1e1e;
         padding: 15px;
         border-radius: 10px;
         text-align: center;
-        border: 2px dashed #81c784;
+        border: 2px dashed #4CAF50;
         margin-top: 30px;
+        color: white;
     }
 </style>
 """, unsafe_allow_html=True)
