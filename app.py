@@ -57,9 +57,9 @@ def get_explanation(crop, soil_class, yield_target):
     soil_text = soil_class.lower() if soil_class else "unknown"
     yield_text = "high" if yield_target > 30 else ("moderate" if yield_target > 15 else "low")
     
-    explanation = f"- **Soil fertility:** {soil_class}\\n"
-    explanation += f"- **Crop:** {crop}\\n"
-    explanation += f"- **Estimated yield:** {yield_target} q/ha\\n\\n"
+    explanation = f"- **Soil fertility:** {soil_class}\n"
+    explanation += f"- **Crop:** {crop}\n"
+    explanation += f"- **Estimated yield:** {yield_target} q/ha\n\n"
     
     explanation += f"Because soil fertility is **{soil_text}** and the target yield is **{yield_text}**, "
     if soil_text == "low":
