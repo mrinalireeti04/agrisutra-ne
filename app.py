@@ -1,4 +1,7 @@
 import streamlit as st
+import importlib
+import fpe_engine
+importlib.reload(fpe_engine)
 from fpe_engine import FPEEngine
 
 # ─────────────────────────────────────────────────────────────────────────────
