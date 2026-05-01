@@ -7,28 +7,33 @@ st.set_page_config(page_title="AgriSutra NE", layout="wide", initial_sidebar_sta
 
 st.markdown("""
 <style>
-    .stApp {
-        background-color: #f9fafb;
-    }
-    h1, h2, h3 {
-        color: #2e7d32;
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap');
+    
+    html, body, [class*="css"] {
         font-family: 'Inter', sans-serif;
     }
+    .stApp {
+        background-color: #0f1117;
+        color: #e0e0e0;
+    }
+    h1, h2, h3 {
+        color: #69f0ae;
+    }
     .card {
-        background-color: white;
+        background-color: #1a1d27;
         padding: 1.5rem;
         border-radius: 12px;
-        box-shadow: 0 4px 6px rgba(0,0,0,0.05);
+        border: 1px solid #252d25;
         margin-bottom: 1rem;
     }
     .metric-value {
         font-size: 2rem;
         font-weight: 700;
-        color: #2e7d32;
+        color: #69f0ae;
     }
     .metric-label {
         font-size: 1rem;
-        color: #555;
+        color: #cfd8dc;
     }
     .badge {
         display: inline-block;
@@ -38,9 +43,12 @@ st.markdown("""
         font-weight: bold;
         font-size: 0.8rem;
     }
-    .badge-low { background-color: #e53935; }
-    .badge-medium { background-color: #fb8c00; }
-    .badge-high { background-color: #43a047; }
+    .badge-low { background-color: #d32f2f; }
+    .badge-medium { background-color: #f57c00; }
+    .badge-high { background-color: #388e3c; }
+    p {
+        color: #b0bec5;
+    }
 </style>
 """, unsafe_allow_html=True)
 
@@ -57,7 +65,7 @@ def render_badge(fertility_class):
 
 # Header
 st.markdown("<h1 style='text-align: center;'>🌾 AgriSutra NE</h1>", unsafe_allow_html=True)
-st.markdown("<p style='text-align: center; color: #555;'>Smart Fertilizer Prescriptions for Northeast India</p>", unsafe_allow_html=True)
+st.markdown("<p style='text-align: center; color: #78909c;'>Smart Fertilizer Prescriptions for Northeast India</p>", unsafe_allow_html=True)
 st.divider()
 
 # Sidebar
@@ -115,7 +123,7 @@ with col1:
         fc_K = None
         SK = st.number_input("Soil Test K (kg/ha)", min_value=0.0, value=150.0)
         
-    st.markdown("<div style='color: grey;'>🎤 Voice Input (Coming Soon)</div>", unsafe_allow_html=True)
+    st.markdown("<div style='color: #78909c;'>🎤 Voice Input (Coming Soon)</div>", unsafe_allow_html=True)
     st.markdown("<br>", unsafe_allow_html=True)
     
     compute_clicked = st.button("⚡ Get Prescription", type="primary", use_container_width=True)
@@ -140,7 +148,7 @@ if compute_clicked:
                 <div class='card'>
                     <div class='metric-label'>Nitrogen (FN)</div>
                     <div class='metric-value'>{res_N['FN']} <span style='font-size:1rem'>kg/ha</span></div>
-                    <div style='color: #666;'>Urea: {res_N['urea_kg_ha']} kg/ha</div>
+                    <div style='color: #cfd8dc;'>Urea: {res_N['urea_kg_ha']} kg/ha</div>
                     <div style='margin-top: 10px;'>Soil: {render_badge(display_fc_N)}</div>
                 </div>
                 """, unsafe_allow_html=True)
@@ -149,7 +157,7 @@ if compute_clicked:
                 <div class='card'>
                     <div class='metric-label'>Phosphorus (FP)</div>
                     <div class='metric-value'>{res_P['FP']} <span style='font-size:1rem'>kg/ha</span></div>
-                    <div style='color: #666;'>SSP: {res_P['ssp_kg_ha']} kg/ha</div>
+                    <div style='color: #cfd8dc;'>SSP: {res_P['ssp_kg_ha']} kg/ha</div>
                     <div style='margin-top: 10px;'>Soil: {render_badge(display_fc_P)}</div>
                 </div>
                 """, unsafe_allow_html=True)
@@ -158,7 +166,7 @@ if compute_clicked:
                 <div class='card'>
                     <div class='metric-label'>Potassium (FK)</div>
                     <div class='metric-value'>{res_K['FK']} <span style='font-size:1rem'>kg/ha</span></div>
-                    <div style='color: #666;'>MOP: {res_K['mop_kg_ha']} kg/ha</div>
+                    <div style='color: #cfd8dc;'>MOP: {res_K['mop_kg_ha']} kg/ha</div>
                     <div style='margin-top: 10px;'>Soil: {render_badge(display_fc_K)}</div>
                 </div>
                 """, unsafe_allow_html=True)
