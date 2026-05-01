@@ -325,8 +325,27 @@ def step3_nutrient():
     with col_in:
         if input_mode.startswith("Fertility"):
             fc = st.selectbox(f"{meta['label']} Soil Fertility", ["Low", "Medium", "High"], key=f"fc_{nut}")
+            fc_display = fc.lower()
         else:
             raw_val = st.number_input(f"{soil_key}", min_value=0.0, step=1.0, value=default_raw, key=f"raw_{nut}")
+            fc_display = FPEEngine._resolve_class_from_value(crop, raw_val, nut)
+            st.info(f"**Detected Fertility Level:** {fc_display.capitalize()}")
+            
+            # Warnings logic
+            if "maize" in crop:
+                if nut == "N" and (raw_val < 225 or raw_val > 500):
+                    st.warning("Value is outside typical Maize N bounds (225-500). Proceeding with extreme category.")
+                elif nut == "P" and (raw_val < 22 or raw_val > 55):
+                    st.warning("Value is outside typical Maize P bounds (22-55).")
+                elif nut == "K" and (raw_val < 137 or raw_val > 337):
+                    st.warning("Value is outside typical Maize K bounds (137-337).")
+            elif "kholar" in crop:
+                if nut == "N" and (raw_val < 100 or raw_val > 500):
+                    st.warning("Value is outside typical Kholar N bounds (100-500).")
+                elif nut == "P" and (raw_val < 10 or raw_val > 90):
+                    st.warning("Value is outside typical Kholar P bounds (10-90).")
+                elif nut == "K" and (raw_val < 90 or raw_val > 400):
+                    st.warning("Value is outside typical Kholar K bounds (90-400).")
 
     with col_eq:
         st.markdown("**Equation applied:**")
@@ -345,7 +364,6 @@ def step3_nutrient():
                 "maize": {"low":"FK = 1.77·T − 0.09·SK","medium":"FK = 2.09·T − 0.22·SK","high":"FK = 2.98·T − 0.34·SK"},
                 "kholar":{"low":"FK = 9.65·T − 0.21·SK","medium":"FK = 11.42·T − 0.31·SK","high":"FK = 12.17·T − 0.33·SK"},
             }
-        fc_display = (fc or "medium").lower()
         eq_str = eqs.get(crop, {}).get(fc_display, "—")
         st.code(eq_str, language=None)
 

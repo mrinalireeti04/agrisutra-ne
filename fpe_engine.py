@@ -11,13 +11,22 @@ class FPEEngine:
     DEFAULT_SK = {"low": 100.0, "medium": 150.0, "high": 300.0}
 
     @staticmethod
-    def _resolve_class_from_value(val: float, nutrient: str) -> str:
-        if nutrient == "N":
-            return "low" if val < 280 else ("high" if val > 400 else "medium")
-        elif nutrient == "P":
-            return "low" if val < 20 else ("high" if val > 35 else "medium")
-        elif nutrient == "K":
-            return "low" if val < 150 else ("high" if val > 300 else "medium")
+    def _resolve_class_from_value(crop: str, val: float, nutrient: str) -> str:
+        crop = crop.lower()
+        if "maize" in crop:
+            if nutrient == "N":
+                return "low" if val < 225 else ("high" if val > 500 else "medium")
+            elif nutrient == "P":
+                return "low" if val < 22 else ("high" if val > 55 else "medium")
+            elif nutrient == "K":
+                return "low" if val < 137 else ("high" if val > 337 else "medium")
+        elif "kholar" in crop:
+            if nutrient == "N":
+                return "low" if val < 225 else ("high" if val > 450 else "medium")
+            elif nutrient == "P":
+                return "low" if val < 22.5 else ("high" if val > 55 else "medium")
+            elif nutrient == "K":
+                return "low" if val < 137 else ("high" if val > 337 else "medium")
         return "medium"
 
     # ─────────────────────────────────────────────
@@ -37,7 +46,7 @@ class FPEEngine:
             fc = fertility_class.lower()
             SN = cls.DEFAULT_SN[fc]
         else:
-            fc = fertility_class.lower() if fertility_class else cls._resolve_class_from_value(SN, "N")
+            fc = cls._resolve_class_from_value(crop, SN, "N")
 
         if "maize" in crop:
             if fc == "low":
@@ -80,7 +89,7 @@ class FPEEngine:
             fc = fertility_class.lower()
             SP = cls.DEFAULT_SP[fc]
         else:
-            fc = fertility_class.lower() if fertility_class else cls._resolve_class_from_value(SP, "P")
+            fc = cls._resolve_class_from_value(crop, SP, "P")
 
         if "maize" in crop:
             if fc == "low":
@@ -123,7 +132,7 @@ class FPEEngine:
             fc = fertility_class.lower()
             SK = cls.DEFAULT_SK[fc]
         else:
-            fc = fertility_class.lower() if fertility_class else cls._resolve_class_from_value(SK, "K")
+            fc = cls._resolve_class_from_value(crop, SK, "K")
 
         if "maize" in crop:
             if fc == "low":
