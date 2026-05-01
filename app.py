@@ -1,6 +1,6 @@
 import streamlit as st
 from fpe_engine import FPEEngine
-from utils import calculate_fertilizers, get_nitrogen_details, get_phosphorus_details, get_potassium_details
+from nutrient_utils import calculate_fertilizers, get_nitrogen_details, get_phosphorus_details, get_potassium_details
 
 st.set_page_config(page_title="AgriSutra NE", layout="wide", initial_sidebar_state="collapsed")
 
