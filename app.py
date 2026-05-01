@@ -1,240 +1,485 @@
 import streamlit as st
-import pandas as pd
 from fpe_engine import FPEEngine
-import anthropic
 
-st.set_page_config(page_title="AgriSutra NE", layout="wide", initial_sidebar_state="expanded")
+# ─────────────────────────────────────────────────────────────────────────────
+# PAGE CONFIG
+# ─────────────────────────────────────────────────────────────────────────────
+st.set_page_config(page_title="AgriSutra NE | FPE Advisor", layout="wide", initial_sidebar_state="collapsed")
 
+# ─────────────────────────────────────────────────────────────────────────────
+# CSS — DARK MODE PREMIUM THEME
+# ─────────────────────────────────────────────────────────────────────────────
 st.markdown("""
 <style>
-    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap');
-    
-    html, body, [class*="css"] {
-        font-family: 'Inter', sans-serif;
-    }
-    .stApp {
-        background-color: #0f1117;
-        color: #e0e0e0;
-    }
-    h1, h2, h3 {
-        color: #69f0ae;
-    }
-    .card {
-        background-color: #1a1d27;
-        padding: 1.5rem;
-        border-radius: 12px;
-        border: 1px solid #252d25;
-        margin-bottom: 1rem;
-    }
-    .metric-value {
-        font-size: 2rem;
-        font-weight: 700;
-        color: #69f0ae;
-    }
-    .metric-label {
-        font-size: 1rem;
-        color: #cfd8dc;
-    }
-    .badge {
-        display: inline-block;
-        padding: 0.25rem 0.5rem;
-        border-radius: 4px;
-        color: white;
-        font-weight: bold;
-        font-size: 0.8rem;
-    }
-    .badge-low { background-color: #d32f2f; }
-    .badge-medium { background-color: #f57c00; }
-    .badge-high { background-color: #388e3c; }
-    p {
-        color: #b0bec5;
-    }
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap');
+
+html, body, [class*="css"] {
+    font-family: 'Inter', sans-serif;
+}
+.stApp {
+    background-color: #0f1117;
+    color: #e0e0e0;
+}
+
+/* ── Header ── */
+.app-header {
+    text-align: center;
+    padding: 1.5rem 0 0.5rem 0;
+    border-bottom: 1px solid #1e2a1e;
+    margin-bottom: 1.5rem;
+}
+.app-header h1 {
+    color: #69f0ae;
+    font-size: 2.2rem;
+    font-weight: 700;
+    margin: 0;
+}
+.app-header p {
+    color: #78909c;
+    font-size: 1rem;
+    margin: 0.25rem 0 0 0;
+}
+
+/* ── Step Indicator ── */
+.step-bar {
+    display: flex;
+    justify-content: center;
+    gap: 12px;
+    margin-bottom: 2rem;
+    flex-wrap: wrap;
+}
+.step-chip {
+    padding: 6px 18px;
+    border-radius: 20px;
+    font-size: 0.82rem;
+    font-weight: 600;
+    border: 2px solid #2a3a2a;
+    color: #546e4a;
+    background: #141a14;
+}
+.step-chip.active {
+    border-color: #69f0ae;
+    color: #69f0ae;
+    background: #0d1f0d;
+}
+.step-chip.done {
+    border-color: #388e3c;
+    color: #388e3c;
+    background: #0d1a0d;
+}
+
+/* ── Panel Card ── */
+.panel {
+    background: #1a1d27;
+    border: 1px solid #252d25;
+    border-radius: 14px;
+    padding: 2rem;
+    margin-bottom: 1.5rem;
+}
+.panel h3 {
+    color: #69f0ae;
+    margin-top: 0;
+}
+
+/* ── Nutrient Badge Cards (hub) ── */
+.nutrient-card {
+    background: #141a14;
+    border: 2px solid #1e2d1e;
+    border-radius: 12px;
+    padding: 1.5rem;
+    text-align: center;
+    transition: border-color 0.2s;
+}
+.nutrient-card.done-card {
+    border-color: #388e3c;
+    background: #0d1a0d;
+}
+.nutrient-card .nut-icon { font-size: 2rem; margin-bottom: 0.4rem; }
+.nutrient-card .nut-name { font-size: 1rem; font-weight: 700; color: #cfd8dc; }
+.nutrient-card .nut-val  { font-size: 1.4rem; font-weight: 700; color: #69f0ae; margin-top: 0.3rem; }
+.nutrient-card .nut-pend { font-size: 0.85rem; color: #546e4a; margin-top: 0.3rem; }
+
+/* ── Result card inside nutrient page ── */
+.result-box {
+    background: #0d1a0d;
+    border: 1px solid #2e7d32;
+    border-radius: 10px;
+    padding: 1.2rem 1.5rem;
+    margin-top: 1rem;
+}
+.result-box .big-val {
+    font-size: 2rem;
+    font-weight: 700;
+    color: #69f0ae;
+}
+.result-box .eq-text {
+    font-size: 0.8rem;
+    color: #78909c;
+    font-family: monospace;
+    margin-top: 0.4rem;
+}
+
+/* ── Summary card ── */
+.summary-card {
+    background: #141a14;
+    border: 2px solid #2e7d32;
+    border-radius: 14px;
+    padding: 1.5rem;
+    text-align: center;
+}
+.summary-card .s-label { color: #90a4ae; font-size: 0.9rem; }
+.summary-card .s-val   { font-size: 2.2rem; font-weight: 700; color: #69f0ae; }
+.summary-card .s-conv  { font-size: 0.85rem; color: #78909c; margin-top: 0.3rem; }
+
+/* ── Divider ── */
+.divider { border-top: 1px solid #252d25; margin: 1.5rem 0; }
+
+/* ── Buttons ── */
+.stButton > button {
+    border-radius: 8px;
+    font-weight: 600;
+    font-size: 0.95rem;
+    transition: all 0.15s;
+}
 </style>
 """, unsafe_allow_html=True)
 
-def estimate_yield(crop, land_type):
-    if "Maize" in crop:
-        return {"Upland": 3.5, "Medium": 4.5, "Lowland": 5.5}.get(land_type, 4.5)
-    else:
-        return {"Upland": 1.5, "Medium": 2.0, "Lowland": 2.5}.get(land_type, 2.0)
+# ─────────────────────────────────────────────────────────────────────────────
+# SESSION STATE INIT
+# ─────────────────────────────────────────────────────────────────────────────
+DEFAULTS = {
+    "step": 1,          # 1=setup, 2=hub, 3=nutrient_page, 4=summary
+    "crop": None,
+    "target_yield": None,
+    "active_nutrient": None,   # "N", "P", or "K"
 
-def render_badge(fertility_class):
-    fc = fertility_class.lower()
-    color_class = {"low": "badge-low", "medium": "badge-medium", "high": "badge-high"}.get(fc, "badge-medium")
-    return f'<span class="badge {color_class}">{fertility_class.upper()}</span>'
+    "N_done": False, "P_done": False, "K_done": False,
+    "FN": None,      "FP": None,      "FK": None,
+    "N_urea": None,  "P_ssp": None,   "K_mop": None,
+    "N_eq": "",      "P_eq": "",      "K_eq": "",
+}
+for k, v in DEFAULTS.items():
+    if k not in st.session_state:
+        st.session_state[k] = v
 
-# Header
-st.markdown("<h1 style='text-align: center;'>🌾 AgriSutra NE</h1>", unsafe_allow_html=True)
-st.markdown("<p style='text-align: center; color: #78909c;'>Smart Fertilizer Prescriptions for Northeast India</p>", unsafe_allow_html=True)
-st.divider()
+# ─────────────────────────────────────────────────────────────────────────────
+# HELPERS
+# ─────────────────────────────────────────────────────────────────────────────
+def go(step, **kwargs):
+    st.session_state.step = step
+    for k, v in kwargs.items():
+        st.session_state[k] = v
+    st.rerun()
 
-# Sidebar
-with st.sidebar:
-    st.header("Settings")
-    crop = st.selectbox("Crop", ["Maize", "Kholar"])
-    land_type = st.selectbox("Land Type", ["Upland", "Medium", "Lowland"])
-    
-    auto_estimate = st.checkbox("Auto-estimate Yield", value=True)
-    if auto_estimate:
-        T = estimate_yield(crop, land_type)
-        st.info(f"Estimated Yield: {T} t/ha")
-    else:
-        T = st.slider("Target Yield (t/ha)", 1.0, 10.0, 4.5, 0.5)
-        
-    with st.expander("How to use"):
-        st.write("""
-        1. Select your crop and land type.
-        2. Set target yield or auto-estimate.
-        3. Enter the soil information for N, P, and K.
-        4. Click '⚡ Get Prescription' to compute results.
-        """)
+def all_done():
+    return st.session_state.N_done and st.session_state.P_done and st.session_state.K_done
 
-# Main Content
-col1, col2 = st.columns([1, 1.5])
+NUTRIENT_META = {
+    "N":  {"icon": "🌿", "label": "Nitrogen",    "unit": "FN",   "fert": "Urea",  "conv_label": "Urea",  "color": "#69f0ae"},
+    "P":  {"icon": "🌱", "label": "Phosphorus",  "unit": "FP₂O₅","fert": "SSP",   "conv_label": "SSP",   "color": "#81d4fa"},
+    "K":  {"icon": "🌾", "label": "Potassium",   "unit": "FK₂O", "fert": "MOP",   "conv_label": "MOP",   "color": "#ffcc80"},
+}
 
-with col1:
-    st.markdown("### 📋 Soil Inputs")
-    input_mode = st.radio("Input Method", ["Fertility Class", "Direct Soil Test Value"], horizontal=True)
-    
-    # N Input
-    st.markdown("**Nitrogen (N)**")
-    if input_mode == "Fertility Class":
-        fc_N = st.selectbox("N Fertility Class", ["Low", "Medium", "High"])
-        SN = None
-    else:
-        fc_N = None
-        SN = st.number_input("Soil Test N (kg/ha)", min_value=0.0, value=280.0)
-        
-    # P Input
-    st.markdown("**Phosphorus (P)**")
-    if input_mode == "Fertility Class":
-        fc_P = st.selectbox("P Fertility Class", ["Low", "Medium", "High"])
-        SP = None
-    else:
-        fc_P = None
-        SP = st.number_input("Soil Test P (kg/ha)", min_value=0.0, value=20.0)
-        
-    # K Input
-    st.markdown("**Potassium (K)**")
-    if input_mode == "Fertility Class":
-        fc_K = st.selectbox("K Fertility Class", ["Low", "Medium", "High"])
-        SK = None
-    else:
-        fc_K = None
-        SK = st.number_input("Soil Test K (kg/ha)", min_value=0.0, value=150.0)
-        
-    st.markdown("<div style='color: #78909c;'>🎤 Voice Input (Coming Soon)</div>", unsafe_allow_html=True)
+# ─────────────────────────────────────────────────────────────────────────────
+# SHARED HEADER
+# ─────────────────────────────────────────────────────────────────────────────
+def render_header():
+    st.markdown("""
+    <div class="app-header">
+        <h1>🌾 AgriSutra NE — Fertilizer Advisor</h1>
+        <p>Kiphire Region &nbsp;|&nbsp; STCR-Based FPE System &nbsp;|&nbsp; Maize &amp; Kholar</p>
+    </div>
+    """, unsafe_allow_html=True)
+
+# ─────────────────────────────────────────────────────────────────────────────
+# STEP INDICATOR
+# ─────────────────────────────────────────────────────────────────────────────
+def render_step_bar():
+    steps = ["1. Crop & Yield", "2. Select Nutrient", "3. Compute", "4. Summary"]
+    cur = st.session_state.step
+    chips = ""
+    for i, label in enumerate(steps, start=1):
+        cls = "active" if i == cur else ("done" if i < cur else "")
+        chips += f'<div class="step-chip {cls}">{label}</div>'
+    st.markdown(f'<div class="step-bar">{chips}</div>', unsafe_allow_html=True)
+
+# ─────────────────────────────────────────────────────────────────────────────
+# STEP 1 — CROP & TARGET YIELD
+# ─────────────────────────────────────────────────────────────────────────────
+def step1_setup():
+    st.markdown('<div class="panel">', unsafe_allow_html=True)
+    st.markdown("### 📋 Step 1 — Select Crop & Target Yield")
+    st.markdown("These values will be used in all three nutrient equations.")
+    st.markdown('<div class="divider"></div>', unsafe_allow_html=True)
+
+    col1, col2 = st.columns(2)
+    with col1:
+        crop = st.selectbox("🌽 Crop", ["Maize (Local)", "Maize (Hybrid)", "Kholar"], key="sel_crop")
+    with col2:
+        if "Maize" in crop:
+            yield_opts = [40, 50]
+        else:
+            yield_opts = [8, 10]
+        T = st.selectbox("🎯 Target Yield (q/ha)", yield_opts, key="sel_yield")
+
+    st.markdown("</div>", unsafe_allow_html=True)
+
     st.markdown("<br>", unsafe_allow_html=True)
-    
-    compute_clicked = st.button("⚡ Get Prescription", type="primary", use_container_width=True)
+    if st.button("✅ Confirm & Proceed to Nutrient Selection", type="primary", use_container_width=True):
+        engine_crop = "maize" if "Maize" in crop else "kholar"
+        go(2, crop=engine_crop, target_yield=float(T),
+           N_done=False, P_done=False, K_done=False,
+           FN=None, FP=None, FK=None,
+           N_urea=None, P_ssp=None, K_mop=None)
 
-if compute_clicked:
-    try:
-        res_N = FPEEngine.compute_N(crop, T, fertility_class=fc_N, SN=SN)
-        res_P = FPEEngine.compute_P(crop, T, fertility_class=fc_P, SP=SP)
-        res_K = FPEEngine.compute_K(crop, T, fertility_class=fc_K, SK=SK)
-        
-        # Deduce classes if raw values were provided for the prompt
-        display_fc_N = fc_N if fc_N else FPEEngine._resolve_class_from_value(SN, "N").capitalize()
-        display_fc_P = fc_P if fc_P else FPEEngine._resolve_class_from_value(SP, "P").capitalize()
-        display_fc_K = fc_K if fc_K else FPEEngine._resolve_class_from_value(SK, "K").capitalize()
+# ─────────────────────────────────────────────────────────────────────────────
+# STEP 2 — NUTRIENT HUB / SELECTION
+# ─────────────────────────────────────────────────────────────────────────────
+def step2_hub():
+    crop_label = "Maize" if "maize" in st.session_state.crop else "Kholar"
+    T = st.session_state.target_yield
 
-        with col2:
-            st.markdown("### 📊 Prescription Results")
-            
-            c1, c2, c3 = st.columns(3)
-            with c1:
-                st.markdown(f"""
-                <div class='card'>
-                    <div class='metric-label'>Nitrogen (FN)</div>
-                    <div class='metric-value'>{res_N['FN']} <span style='font-size:1rem'>kg/ha</span></div>
-                    <div style='color: #cfd8dc;'>Urea: {res_N['urea_kg_ha']} kg/ha</div>
-                    <div style='margin-top: 10px;'>Soil: {render_badge(display_fc_N)}</div>
-                </div>
-                """, unsafe_allow_html=True)
-            with c2:
-                st.markdown(f"""
-                <div class='card'>
-                    <div class='metric-label'>Phosphorus (FP)</div>
-                    <div class='metric-value'>{res_P['FP']} <span style='font-size:1rem'>kg/ha</span></div>
-                    <div style='color: #cfd8dc;'>SSP: {res_P['ssp_kg_ha']} kg/ha</div>
-                    <div style='margin-top: 10px;'>Soil: {render_badge(display_fc_P)}</div>
-                </div>
-                """, unsafe_allow_html=True)
-            with c3:
-                st.markdown(f"""
-                <div class='card'>
-                    <div class='metric-label'>Potassium (FK)</div>
-                    <div class='metric-value'>{res_K['FK']} <span style='font-size:1rem'>kg/ha</span></div>
-                    <div style='color: #cfd8dc;'>MOP: {res_K['mop_kg_ha']} kg/ha</div>
-                    <div style='margin-top: 10px;'>Soil: {render_badge(display_fc_K)}</div>
-                </div>
-                """, unsafe_allow_html=True)
-                
-            df = pd.DataFrame({
-                "Nutrient": ["Nitrogen", "Phosphorus", "Potassium"],
-                "Fertility Class": [display_fc_N, display_fc_P, display_fc_K],
-                "Requirement (kg/ha)": [res_N['FN'], res_P['FP'], res_K['FK']],
-                "Fertilizer": ["Urea", "SSP", "MOP"],
-                "Amount (kg/ha)": [res_N['urea_kg_ha'], res_P['ssp_kg_ha'], res_K['mop_kg_ha']]
-            })
-            st.dataframe(df, use_container_width=True, hide_index=True)
-            
-            with st.expander("Show Equation Details"):
-                st.code(f"{res_N['equation']}\n{res_P['equation']}\n{res_K['equation']}")
+    st.markdown(f"""
+    <div class="panel">
+        <h3>🧭 Step 2 — Nutrient Selection Hub</h3>
+        <p style="color:#78909c">Crop: <strong style="color:#cfd8dc">{crop_label}</strong>
+        &nbsp;|&nbsp; Target Yield: <strong style="color:#cfd8dc">{T} q/ha</strong></p>
+        <p>Select one nutrient at a time. Compute each independently.</p>
+    </div>
+    """, unsafe_allow_html=True)
 
-        # LLM Explanation Section
-        st.divider()
-        with st.expander("🧠 AgriSutra AI Explanation", expanded=True):
-            with st.spinner("Generating agronomic explanation..."):
-                try:
-                    client = anthropic.Anthropic(api_key=st.secrets["ANTHROPIC_API_KEY"])
-                    
-                    system_prompt = """You are AgriSutra AI, an expert agricultural scientist and soil 
-fertility advisor for Northeast India. When given a fertilizer 
-prescription, explain it in clear, logical, farmer-friendly language.
+    # ── Nutrient status cards ──
+    c1, c2, c3 = st.columns(3)
+    for col, nut_key in zip([c1, c2, c3], ["N", "P", "K"]):
+        meta = NUTRIENT_META[nut_key]
+        done = st.session_state[f"{nut_key}_done"]
+        val_key = {"N": "FN", "P": "FP", "K": "FK"}[nut_key]
+        val = st.session_state[val_key]
 
-Always structure your response exactly as follows:
+        card_cls = "nutrient-card done-card" if done else "nutrient-card"
+        badge = f'<div class="nut-val">{val} kg/ha</div>' if done else '<div class="nut-pend">⏳ Pending</div>'
+        status_icon = "✅" if done else "○"
 
-**Why these amounts?**
-Explain the agronomic logic behind FN, FP, FK. Reference target yield 
-and soil fertility class. No raw equations — conceptual reasoning only.
+        col.markdown(f"""
+        <div class="{card_cls}">
+            <div class="nut-icon">{meta['icon']}</div>
+            <div class="nut-name">{status_icon} {meta['label']}</div>
+            {badge}
+        </div>
+        """, unsafe_allow_html=True)
 
-**Soil fertility interpretation**
-What does the farmer's fertility class mean for their field? 
-What are the risks if left untreated?
+        with col:
+            btn_label = "✏️ Recompute" if done else "▶ Compute"
+            if st.button(btn_label, key=f"btn_hub_{nut_key}", use_container_width=True):
+                go(3, active_nutrient=nut_key)
 
-**Application advice**
-When and how to apply (split doses, timing relative to sowing, method).
+    st.markdown("<br>", unsafe_allow_html=True)
 
-**Caution flags**
-If any value is 0 or unusually high, flag it and explain why.
+    # ── Navigation row ──
+    bcol, fcol = st.columns([1, 3])
+    with bcol:
+        if st.button("← Back to Setup"):
+            go(1)
+    with fcol:
+        if all_done():
+            if st.button("🏁 View Final Summary →", type="primary", use_container_width=True):
+                go(4)
+        else:
+            remaining = [NUTRIENT_META[n]["label"] for n in ["N","P","K"] if not st.session_state[f"{n}_done"]]
+            st.info(f"Still pending: **{', '.join(remaining)}**. Compute all to unlock the summary.")
 
-**Farmer takeaway**
-One plain-language actionable sentence.
+# ─────────────────────────────────────────────────────────────────────────────
+# STEP 3 — INDIVIDUAL NUTRIENT PAGE
+# ─────────────────────────────────────────────────────────────────────────────
+def step3_nutrient():
+    nut = st.session_state.active_nutrient   # "N", "P", or "K"
+    meta = NUTRIENT_META[nut]
+    crop = st.session_state.crop
+    T    = st.session_state.target_yield
 
-Be specific to the crop and fertility class. Never give generic advice. 
-200–300 words total."""
+    crop_label = "Maize" if "maize" in crop else "Kholar"
 
-                    user_message = f"""Crop: {crop}, Target Yield: {T} t/ha, Land Type: {land_type}
-N — Class: {display_fc_N}, FN={res_N['FN']} kg/ha, Urea={res_N['urea_kg_ha']} kg/ha
-P — Class: {display_fc_P}, FP={res_P['FP']} kg/ha, SSP={res_P['ssp_kg_ha']} kg/ha
-K — Class: {display_fc_K}, FK={res_K['FK']} kg/ha, MOP={res_K['mop_kg_ha']} kg/ha
-Explain this prescription agronomically."""
+    st.markdown(f"""
+    <div class="panel">
+        <h3>{meta['icon']} Step 3 — {meta['label']} ({meta['unit']})</h3>
+        <p style="color:#78909c">Crop: <strong style="color:#cfd8dc">{crop_label}</strong>
+        &nbsp;|&nbsp; T = <strong style="color:#cfd8dc">{T} q/ha</strong></p>
+        <p>This page computes <strong>{meta['label']}</strong> ONLY. No other nutrient is touched.</p>
+    </div>
+    """, unsafe_allow_html=True)
 
-                    response = client.messages.create(
-                        model="claude-sonnet-4-20250514",
-                        max_tokens=600,
-                        system=system_prompt,
-                        messages=[
-                            {"role": "user", "content": user_message}
-                        ]
-                    )
-                    
-                    st.markdown(response.content[0].text)
-                    
-                except Exception as e:
-                    st.error(f"Error connecting to AgriSutra AI: {str(e)}")
-                    st.info("Make sure your ANTHROPIC_API_KEY is set in .streamlit/secrets.toml")
-    except Exception as e:
-        st.error(f"Computation Error: {str(e)}")
+    # ── Input mode ──
+    input_mode = st.radio(
+        "Input method for this nutrient:",
+        ["Fertility Class (Low / Medium / High)", "Direct Soil Test Value"],
+        horizontal=True,
+        key=f"imode_{nut}"
+    )
+
+    fc, raw_val = None, None
+    soil_key = {"N": "SN (kg/ha)", "P": "SP (kg/ha)", "K": "SK (kg/ha)"}[nut]
+    default_raw = {"N": 280.0, "P": 20.0, "K": 150.0}[nut]
+
+    col_in, col_eq = st.columns([1, 1])
+
+    with col_in:
+        if input_mode.startswith("Fertility"):
+            fc = st.selectbox(f"{meta['label']} Soil Fertility", ["Low", "Medium", "High"], key=f"fc_{nut}")
+        else:
+            raw_val = st.number_input(f"{soil_key}", min_value=0.0, step=1.0, value=default_raw, key=f"raw_{nut}")
+
+    with col_eq:
+        st.markdown("**Equation applied:**")
+        if nut == "N":
+            eqs = {
+                "maize": {"low":"FN = 3.93·T − 0.26·SN", "medium":"FN = 4.11·T − 0.36·SN", "high":"FN = 4.87·T − 0.41·SN"},
+                "kholar":{"low":"FN = 23.76·T − 0.52·SN","medium":"FN = 25.26·T − 0.57·SN","high":"FN = 26.45·T − 0.63·SN"},
+            }
+        elif nut == "P":
+            eqs = {
+                "maize": {"low":"FP = 1.28·T − 0.87·SP", "medium":"FP = 1.97·T − 1.66·SP","high":"FP = 3.86·T − 2.81·SP"},
+                "kholar":{"low":"FP = 11.45·T − 1.89·SP","medium":"FP = 12.37·T − 1.88·SP","high":"FP = 14.11·T − 1.97·SP"},
+            }
+        else:
+            eqs = {
+                "maize": {"low":"FK = 1.77·T − 0.09·SK","medium":"FK = 2.09·T − 0.22·SK","high":"FK = 2.98·T − 0.34·SK"},
+                "kholar":{"low":"FK = 9.65·T − 0.21·SK","medium":"FK = 11.42·T − 0.31·SK","high":"FK = 12.17·T − 0.33·SK"},
+            }
+        fc_display = (fc or "medium").lower()
+        eq_str = eqs.get(crop, {}).get(fc_display, "—")
+        st.code(eq_str, language=None)
+
+    st.markdown("<br>", unsafe_allow_html=True)
+
+    # ── Compute button ──
+    if st.button(f"⚡ Compute {meta['label']}", type="primary", use_container_width=True, key=f"cmp_{nut}"):
+        try:
+            if nut == "N":
+                res = FPEEngine.compute_N(crop, T, fertility_class=fc, SN=raw_val)
+                st.session_state.FN    = res["FN"]
+                st.session_state.N_urea = res["urea_kg_ha"]
+                st.session_state.N_eq  = res["equation"]
+                st.session_state.N_done = True
+            elif nut == "P":
+                res = FPEEngine.compute_P(crop, T, fertility_class=fc, SP=raw_val)
+                st.session_state.FP    = res["FP"]
+                st.session_state.P_ssp = res["ssp_kg_ha"]
+                st.session_state.P_eq  = res["equation"]
+                st.session_state.P_done = True
+            else:
+                res = FPEEngine.compute_K(crop, T, fertility_class=fc, SK=raw_val)
+                st.session_state.FK    = res["FK"]
+                st.session_state.K_mop = res["mop_kg_ha"]
+                st.session_state.K_eq  = res["equation"]
+                st.session_state.K_done = True
+            st.rerun()
+        except Exception as e:
+            st.error(f"Calculation error: {e}")
+
+    # ── Show result if already computed ──
+    done_key  = f"{nut}_done"
+    val_map   = {"N": "FN",    "P": "FP",    "K": "FK"}
+    conv_map  = {"N": "N_urea","P": "P_ssp", "K": "K_mop"}
+    conv_lbls = {"N": "Urea",  "P": "SSP",   "K": "MOP"}
+    eq_map    = {"N": "N_eq",  "P": "P_eq",  "K": "K_eq"}
+
+    if st.session_state[done_key]:
+        val  = st.session_state[val_map[nut]]
+        conv = st.session_state[conv_map[nut]]
+        eq   = st.session_state[eq_map[nut]]
+        clbl = conv_lbls[nut]
+        st.markdown(f"""
+        <div class="result-box">
+            <div class="big-val">{val} kg/ha &nbsp;<span style="font-size:1rem;color:#78909c">({meta['unit']})</span></div>
+            <div style="margin-top:0.5rem; color:#b0bec5;">→ {clbl}: <strong style="color:#fff">{conv} kg/ha</strong></div>
+            <div class="eq-text">{eq}</div>
+        </div>
+        """, unsafe_allow_html=True)
+
+    # ── Navigation ──
+    st.markdown("<br>", unsafe_allow_html=True)
+    n1, n2 = st.columns([1, 1])
+    with n1:
+        if st.button("← Back to Nutrient Hub"):
+            go(2)
+    with n2:
+        if all_done():
+            if st.button("🏁 View Final Summary →", type="primary", use_container_width=True):
+                go(4)
+
+# ─────────────────────────────────────────────────────────────────────────────
+# STEP 4 — FINAL SUMMARY
+# ─────────────────────────────────────────────────────────────────────────────
+def step4_summary():
+    crop_label = "Maize" if "maize" in st.session_state.crop else "Kholar"
+    T = st.session_state.target_yield
+
+    st.markdown(f"""
+    <div class="panel">
+        <h3>🏁 Step 4 — Final Fertilizer Summary</h3>
+        <p style="color:#78909c">Crop: <strong style="color:#cfd8dc">{crop_label}</strong>
+        &nbsp;|&nbsp; Target Yield: <strong style="color:#cfd8dc">{T} q/ha</strong></p>
+    </div>
+    """, unsafe_allow_html=True)
+
+    c1, c2, c3 = st.columns(3)
+
+    for col, nut, val_key, conv_key, conv_lbl, unit in [
+        (c1, "N", "FN",  "N_urea","Urea",  "kg/ha N"),
+        (c2, "P", "FP",  "P_ssp", "SSP",   "kg/ha P₂O₅"),
+        (c3, "K", "FK",  "K_mop", "MOP",   "kg/ha K₂O"),
+    ]:
+        meta = NUTRIENT_META[nut]
+        val  = st.session_state[val_key]
+        conv = st.session_state[conv_key]
+        eq   = st.session_state[f"{nut}_eq"]
+        col.markdown(f"""
+        <div class="summary-card">
+            <div style="font-size:2rem">{meta['icon']}</div>
+            <div class="s-label">{meta['label']}</div>
+            <div class="s-val">{val}</div>
+            <div class="s-label" style="margin-top:0.1rem">{unit}</div>
+            <div class="s-conv">→ {conv_lbl}: <strong>{conv} kg/ha</strong></div>
+            <div style="font-size:0.7rem; color:#546e4a; margin-top:0.5rem; font-family:monospace">{eq}</div>
+        </div>
+        """, unsafe_allow_html=True)
+
+    # ── Application schedule ──
+    st.markdown("<br>", unsafe_allow_html=True)
+    st.markdown("### 📅 Recommended Application Schedule")
+    urea = st.session_state.N_urea
+    ssp  = st.session_state.P_ssp
+    mop  = st.session_state.K_mop
+
+    sch_cols = st.columns(3)
+    schedules = [
+        ("At Sowing (Basal)", f"All SSP ({ssp} kg) + All MOP ({mop} kg) + {round(urea*0.5,1)} kg Urea"),
+        ("30 Days After Sowing", f"{round(urea*0.25,1)} kg Urea"),
+        ("60 Days After Sowing", f"{round(urea*0.25,1)} kg Urea"),
+    ]
+    for col, (timing, dose) in zip(sch_cols, schedules):
+        col.markdown(f"""
+        <div class="panel" style="text-align:center">
+            <div style="font-size:0.8rem;color:#78909c">{timing}</div>
+            <div style="font-size:0.95rem;color:#e0e0e0;margin-top:0.4rem;font-weight:600">{dose}</div>
+        </div>
+        """, unsafe_allow_html=True)
+
+    st.markdown("<br>", unsafe_allow_html=True)
+    if st.button("🔄 Start New Recommendation", use_container_width=True):
+        for k in list(st.session_state.keys()):
+            del st.session_state[k]
+        st.rerun()
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# ROUTER
+# ─────────────────────────────────────────────────────────────────────────────
+render_header()
+render_step_bar()
+
+step = st.session_state.step
+if   step == 1: step1_setup()
+elif step == 2: step2_hub()
+elif step == 3: step3_nutrient()
+elif step == 4: step4_summary()
