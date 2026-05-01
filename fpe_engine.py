@@ -65,7 +65,7 @@ class FPEEngine:
         else:
             raise ValueError(f"Unsupported crop: {crop}")
 
-        FN = max(0.0, round(FN, 2))
+        FN = round(FN, 2)
         return {
             "FN": FN,
             "urea_kg_ha": round(FN / 0.46, 2),
@@ -108,7 +108,7 @@ class FPEEngine:
         else:
             raise ValueError(f"Unsupported crop: {crop}")
 
-        FP = max(0.0, round(FP, 2))
+        FP = round(FP, 2)
         return {
             "FP": FP,
             "ssp_kg_ha": round(FP / 0.16, 2),
@@ -151,7 +151,7 @@ class FPEEngine:
         else:
             raise ValueError(f"Unsupported crop: {crop}")
 
-        FK = max(0.0, round(FK, 2))
+        FK = round(FK, 2)
         return {
             "FK": FK,
             "mop_kg_ha": round(FK / 0.60, 2),
