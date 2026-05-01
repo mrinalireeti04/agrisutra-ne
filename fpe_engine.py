@@ -1,132 +1,156 @@
-from pydantic import BaseModel
-from typing import Optional
-
 class FPEEngine:
-    # Approximate soil nutrient values (kg/ha) if raw data is missing
-    DEFAULT_SOIL_VALUES = {
-        "low": {"SN": 150.0, "SP": 10.0, "SK": 100.0},
-        "medium": {"SN": 280.0, "SP": 20.0, "SK": 150.0},
-        "high": {"SN": 400.0, "SP": 35.0, "SK": 300.0}
-    }
+    """
+    Fertilizer Prescription Equation (FPE) Engine.
+    Each nutrient (N, P, K) is computed INDEPENDENTLY.
+    Never mix fertility inputs across nutrients.
+    """
 
+    # Default soil nutrient values (kg/ha) for each fertility class
+    DEFAULT_SN = {"low": 150.0, "medium": 280.0, "high": 400.0}
+    DEFAULT_SP = {"low": 10.0,  "medium": 20.0,  "high": 35.0}
+    DEFAULT_SK = {"low": 100.0, "medium": 150.0, "high": 300.0}
+
+    @staticmethod
+    def _resolve_class_from_value(val: float, nutrient: str) -> str:
+        if nutrient == "N":
+            return "low" if val < 280 else ("high" if val > 400 else "medium")
+        elif nutrient == "P":
+            return "low" if val < 20 else ("high" if val > 35 else "medium")
+        elif nutrient == "K":
+            return "low" if val < 150 else ("high" if val > 300 else "medium")
+        return "medium"
+
+    # ─────────────────────────────────────────────
+    # NITROGEN (FN) — Independent
+    # ─────────────────────────────────────────────
     @classmethod
-    def compute(cls, 
-                crop: str, 
-                target_yield: float,
-                soil_n_class: str = None, 
-                soil_p_class: str = None, 
-                soil_k_class: str = None, 
-                SN: float = None, 
-                SP: float = None, 
-                SK: float = None) -> dict:
+    def compute_N(cls, crop: str, T: float, fertility_class: str = None, SN: float = None) -> dict:
         """
-        Computes Fertilizer Prescription Equation (FPE) for given crop.
-        Calculates N, P2O5, K2O independently based on separate N, P, K classes/values.
+        Compute Nitrogen requirement (FN) independently.
+        Either fertility_class OR SN must be provided.
         """
-        if not target_yield:
-            raise ValueError("target_yield is required from the system.")
-
         crop = crop.lower()
-        
-        # Determine actual classes and values for each nutrient
-        n_class, sn_val = cls._resolve_nutrient("N", soil_n_class, SN)
-        p_class, sp_val = cls._resolve_nutrient("P", soil_p_class, SP)
-        k_class, sk_val = cls._resolve_nutrient("K", soil_k_class, SK)
+
+        if SN is None:
+            if fertility_class is None:
+                raise ValueError("Provide either fertility_class or SN for Nitrogen.")
+            fc = fertility_class.lower()
+            SN = cls.DEFAULT_SN[fc]
+        else:
+            fc = fertility_class.lower() if fertility_class else cls._resolve_class_from_value(SN, "N")
 
         if "maize" in crop:
-            return cls._compute_maize(n_class, p_class, k_class, sn_val, sp_val, sk_val, target_yield)
-        elif "kholar" in crop:
-            return cls._compute_kholar(n_class, p_class, k_class, sn_val, sp_val, sk_val, target_yield)
-        else:
-            raise ValueError(f"Crop '{crop}' is not currently supported.")
-
-    @classmethod
-    def _resolve_nutrient(cls, nutrient_type: str, soil_class: str, val: float):
-        if soil_class:
-            soil_class = soil_class.lower()
-            
-        if val is None:
-            if not soil_class or soil_class not in cls.DEFAULT_SOIL_VALUES:
-                raise ValueError(f"Must provide either raw soil value or a valid class for {nutrient_type}.")
-            val = cls.DEFAULT_SOIL_VALUES[soil_class][f"S{nutrient_type}"]
-            calc_class = soil_class
-        else:
-            if not soil_class:
-                if nutrient_type == "N":
-                    calc_class = "low" if val < 280 else ("high" if val > 400 else "medium")
-                elif nutrient_type == "P":
-                    calc_class = "low" if val < 20 else ("high" if val > 35 else "medium")
-                elif nutrient_type == "K":
-                    calc_class = "low" if val < 150 else ("high" if val > 300 else "medium")
+            if fc == "low":
+                FN = 3.93 * T - 0.26 * SN
+            elif fc == "medium":
+                FN = 4.11 * T - 0.36 * SN
             else:
-                calc_class = soil_class
-
-        return calc_class, val
-
-    @classmethod
-    def _compute_maize(cls, n_class: str, p_class: str, k_class: str, SN: float, SP: float, SK: float, T: float) -> dict:
-        # Nitrogen
-        if n_class == "low":
-            FN = 3.93 * T - 0.26 * SN
-        elif n_class == "medium":
-            FN = 4.11 * T - 0.36 * SN
+                FN = 4.87 * T - 0.41 * SN
+        elif "kholar" in crop:
+            if fc == "low":
+                FN = 23.76 * T - 0.52 * SN
+            elif fc == "medium":
+                FN = 25.26 * T - 0.57 * SN
+            else:
+                FN = 26.45 * T - 0.63 * SN
         else:
-            FN = 4.87 * T - 0.41 * SN
+            raise ValueError(f"Unsupported crop: {crop}")
 
-        # Phosphorus
-        if p_class == "low":
-            FP = 1.28 * T - 0.87 * SP
-        elif p_class == "medium":
-            FP = 1.97 * T - 1.66 * SP
-        else:
-            FP = 3.86 * T - 2.81 * SP
-
-        # Potassium
-        if k_class == "low":
-            FK = 1.77 * T - 0.09 * SK
-        elif k_class == "medium":
-            FK = 2.09 * T - 0.22 * SK
-        else:
-            FK = 2.98 * T - 0.34 * SK
-
+        FN = max(0.0, round(FN, 2))
         return {
-            "N": min(300.0, max(0.0, round(FN, 2))),
-            "P2O5": min(300.0, max(0.0, round(FP, 2))),
-            "K2O": min(300.0, max(0.0, round(FK, 2)))
+            "FN": FN,
+            "urea_kg_ha": round(FN / 0.46, 2),
+            "equation": f"FN = {FN} kg/ha   [SN={SN}, T={T}, Class={fc}]"
         }
 
+    # ─────────────────────────────────────────────
+    # PHOSPHORUS (FP) — Independent
+    # ─────────────────────────────────────────────
     @classmethod
-    def _compute_kholar(cls, n_class: str, p_class: str, k_class: str, SN: float, SP: float, SK: float, T: float) -> dict:
-        # Nitrogen
-        if n_class == "low":
-            FN = 23.76 * T - 0.52 * SN
-        elif n_class == "medium":
-            FN = 25.26 * T - 0.57 * SN
-        else:
-            FN = 26.45 * T - 0.63 * SN
+    def compute_P(cls, crop: str, T: float, fertility_class: str = None, SP: float = None) -> dict:
+        """
+        Compute Phosphorus requirement (FP2O5) independently.
+        Either fertility_class OR SP must be provided.
+        """
+        crop = crop.lower()
 
-        # Phosphorus
-        if p_class == "low":
-            FP = 11.45 * T - 1.89 * SP
-        elif p_class == "medium":
-            FP = 12.37 * T - 1.88 * SP
+        if SP is None:
+            if fertility_class is None:
+                raise ValueError("Provide either fertility_class or SP for Phosphorus.")
+            fc = fertility_class.lower()
+            SP = cls.DEFAULT_SP[fc]
         else:
-            FP = 14.11 * T - 1.97 * SP
+            fc = fertility_class.lower() if fertility_class else cls._resolve_class_from_value(SP, "P")
 
-        # Potassium
-        if k_class == "low":
-            FK = 9.65 * T - 0.21 * SK
-        elif k_class == "medium":
-            FK = 11.42 * T - 0.31 * SK
+        if "maize" in crop:
+            if fc == "low":
+                FP = 1.28 * T - 0.87 * SP
+            elif fc == "medium":
+                FP = 1.97 * T - 1.66 * SP
+            else:
+                FP = 3.86 * T - 2.81 * SP
+        elif "kholar" in crop:
+            if fc == "low":
+                FP = 11.45 * T - 1.89 * SP
+            elif fc == "medium":
+                FP = 12.37 * T - 1.88 * SP
+            else:
+                FP = 14.11 * T - 1.97 * SP
         else:
-            FK = 12.17 * T - 0.33 * SK
+            raise ValueError(f"Unsupported crop: {crop}")
 
+        FP = max(0.0, round(FP, 2))
         return {
-            "N": min(300.0, max(0.0, round(FN, 2))),
-            "P2O5": min(300.0, max(0.0, round(FP, 2))),
-            "K2O": min(300.0, max(0.0, round(FK, 2)))
+            "FP": FP,
+            "ssp_kg_ha": round(FP / 0.16, 2),
+            "equation": f"FP = {FP} kg/ha   [SP={SP}, T={T}, Class={fc}]"
         }
+
+    # ─────────────────────────────────────────────
+    # POTASSIUM (FK) — Independent
+    # ─────────────────────────────────────────────
+    @classmethod
+    def compute_K(cls, crop: str, T: float, fertility_class: str = None, SK: float = None) -> dict:
+        """
+        Compute Potassium requirement (FK2O) independently.
+        Either fertility_class OR SK must be provided.
+        """
+        crop = crop.lower()
+
+        if SK is None:
+            if fertility_class is None:
+                raise ValueError("Provide either fertility_class or SK for Potassium.")
+            fc = fertility_class.lower()
+            SK = cls.DEFAULT_SK[fc]
+        else:
+            fc = fertility_class.lower() if fertility_class else cls._resolve_class_from_value(SK, "K")
+
+        if "maize" in crop:
+            if fc == "low":
+                FK = 1.77 * T - 0.09 * SK
+            elif fc == "medium":
+                FK = 2.09 * T - 0.22 * SK
+            else:
+                FK = 2.98 * T - 0.34 * SK
+        elif "kholar" in crop:
+            if fc == "low":
+                FK = 9.65 * T - 0.21 * SK
+            elif fc == "medium":
+                FK = 11.42 * T - 0.31 * SK
+            else:
+                FK = 12.17 * T - 0.33 * SK
+        else:
+            raise ValueError(f"Unsupported crop: {crop}")
+
+        FK = max(0.0, round(FK, 2))
+        return {
+            "FK": FK,
+            "mop_kg_ha": round(FK / 0.60, 2),
+            "equation": f"FK = {FK} kg/ha   [SK={SK}, T={T}, Class={fc}]"
+        }
+
 
 if __name__ == "__main__":
-    res = FPEEngine.compute(crop="maize", target_yield=40, soil_n_class="low", soil_p_class="medium", soil_k_class="high")
-    print(res)
+    print(FPEEngine.compute_N("maize", T=40, fertility_class="low"))
+    print(FPEEngine.compute_P("maize", T=40, fertility_class="medium"))
+    print(FPEEngine.compute_K("maize", T=40, fertility_class="high"))
