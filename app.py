@@ -1,3 +1,4 @@
+import os
 import streamlit as st
 import importlib
 import fpe_engine
@@ -7,7 +8,10 @@ from fpe_engine import FPEEngine
 
 @st.cache_data
 def get_explainable_summary_table(crop, yield_target, urea, ssp, mop):
-    genai.configure(api_key="***REMOVED***")
+    api_key = st.secrets.get("GEMINI_API_KEY") or os.environ.get("GEMINI_API_KEY")
+    if not api_key:
+        return "API Key not found. Please set GEMINI_API_KEY in Streamlit secrets or environment variables."
+    genai.configure(api_key=api_key)
     model = genai.GenerativeModel('gemini-1.5-pro-latest')
     prompt = f"""
     We are recommending fertilizers for {crop} with a target yield of {yield_target} q/ha.
