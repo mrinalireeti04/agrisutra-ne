@@ -1,8 +1,26 @@
 import streamlit as st
 import importlib
 import fpe_engine
+import google.generativeai as genai
 importlib.reload(fpe_engine)
 from fpe_engine import FPEEngine
+
+@st.cache_data
+def get_explainable_summary_table(crop, yield_target, urea, ssp, mop):
+    genai.configure(api_key="***REMOVED***")
+    model = genai.GenerativeModel('gemini-1.5-pro')
+    prompt = f"""
+    We are recommending fertilizers for {crop} with a target yield of {yield_target} q/ha.
+    The recommended amounts are: {urea} kg/ha Urea, {ssp} kg/ha SSP, and {mop} kg/ha MOP.
+    Please provide a detailed, explainable, technical summary table explaining the agronomic reasoning 
+    behind these fertilizer quantities. 
+    Make sure the response is JUST the markdown table and a very brief introductory or concluding remark if necessary, formatted nicely.
+    """
+    try:
+        response = model.generate_content(prompt)
+        return response.text
+    except Exception as e:
+        return f"Could not generate summary: {e}"
 
 # ─────────────────────────────────────────────────────────────────────────────
 # PAGE CONFIG
@@ -323,7 +341,7 @@ def step3_nutrient():
     soil_key = {"N": "SN (kg/ha)", "P": "SP (kg/ha)", "K": "SK (kg/ha)"}[nut]
     default_raw = {"N": 280.0, "P": 20.0, "K": 150.0}[nut]
 
-    col_in, col_eq = st.columns([1, 1])
+    col_in = st.container()
 
     with col_in:
         if input_mode.startswith("Fertility"):
@@ -349,26 +367,6 @@ def step3_nutrient():
                     st.warning("Value is outside typical Kholar P bounds (10-90).")
                 elif nut == "K" and (raw_val < 90 or raw_val > 400):
                     st.warning("Value is outside typical Kholar K bounds (90-400).")
-
-    with col_eq:
-        st.markdown("**Equation applied:**")
-        if nut == "N":
-            eqs = {
-                "maize": {"low":"FN = 3.93·T − 0.26·SN", "medium":"FN = 4.11·T − 0.36·SN", "high":"FN = 4.87·T − 0.41·SN"},
-                "kholar":{"low":"FN = 23.76·T − 0.52·SN","medium":"FN = 25.26·T − 0.57·SN","high":"FN = 26.45·T − 0.63·SN"},
-            }
-        elif nut == "P":
-            eqs = {
-                "maize": {"low":"FP = 1.28·T − 0.87·SP", "medium":"FP = 1.97·T − 1.66·SP","high":"FP = 3.86·T − 2.81·SP"},
-                "kholar":{"low":"FP = 11.45·T − 1.89·SP","medium":"FP = 12.37·T − 1.88·SP","high":"FP = 14.11·T − 1.97·SP"},
-            }
-        else:
-            eqs = {
-                "maize": {"low":"FK = 1.77·T − 0.09·SK","medium":"FK = 2.09·T − 0.22·SK","high":"FK = 2.98·T − 0.34·SK"},
-                "kholar":{"low":"FK = 9.65·T − 0.21·SK","medium":"FK = 11.42·T − 0.31·SK","high":"FK = 12.17·T − 0.33·SK"},
-            }
-        eq_str = eqs.get(crop, {}).get(fc_display, "—")
-        st.code(eq_str, language=None)
 
     st.markdown("<br>", unsafe_allow_html=True)
 
@@ -407,13 +405,11 @@ def step3_nutrient():
     if st.session_state[done_key]:
         val  = st.session_state[val_map[nut]]
         conv = st.session_state[conv_map[nut]]
-        eq   = st.session_state[eq_map[nut]]
         clbl = conv_lbls[nut]
         st.markdown(f"""
         <div class="result-box">
             <div class="big-val">{val} kg/ha &nbsp;<span style="font-size:1rem;color:#78909c">({meta['unit']})</span></div>
             <div style="margin-top:0.5rem; color:#b0bec5;">→ {clbl}: <strong style="color:#fff">{conv} kg/ha</strong></div>
-            <div class="eq-text">{eq}</div>
         </div>
         """, unsafe_allow_html=True)
 
@@ -453,7 +449,6 @@ def step4_summary():
         meta = NUTRIENT_META[nut]
         val  = st.session_state[val_key]
         conv = st.session_state[conv_key]
-        eq   = st.session_state[f"{nut}_eq"]
         col.markdown(f"""
         <div class="summary-card">
             <div style="font-size:2rem">{meta['icon']}</div>
@@ -461,7 +456,6 @@ def step4_summary():
             <div class="s-val">{val}</div>
             <div class="s-label" style="margin-top:0.1rem">{unit}</div>
             <div class="s-conv">→ {conv_lbl}: <strong>{conv} kg/ha</strong></div>
-            <div style="font-size:0.7rem; color:#546e4a; margin-top:0.5rem; font-family:monospace">{eq}</div>
         </div>
         """, unsafe_allow_html=True)
 
@@ -485,6 +479,12 @@ def step4_summary():
             <div style="font-size:0.95rem;color:#e0e0e0;margin-top:0.4rem;font-weight:600">{dose}</div>
         </div>
         """, unsafe_allow_html=True)
+
+    st.markdown("<br>", unsafe_allow_html=True)
+    st.markdown("### 📊 AI-Driven Explainable Summary")
+    with st.spinner("Generating detailed technical summary from AI..."):
+        summary_table = get_explainable_summary_table(crop_label, T, urea, ssp, mop)
+        st.markdown(summary_table)
 
     st.markdown("<br>", unsafe_allow_html=True)
     if st.button("🔄 Start New Recommendation", use_container_width=True):
