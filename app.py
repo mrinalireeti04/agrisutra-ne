@@ -8,13 +8,14 @@ from fpe_engine import FPEEngine
 @st.cache_data
 def get_explainable_summary_table(crop, yield_target, urea, ssp, mop):
     genai.configure(api_key="***REMOVED***")
-    model = genai.GenerativeModel('gemini-1.5-pro')
+    model = genai.GenerativeModel('gemini-1.5-pro-latest')
     prompt = f"""
     We are recommending fertilizers for {crop} with a target yield of {yield_target} q/ha.
     The recommended amounts are: {urea} kg/ha Urea, {ssp} kg/ha SSP, and {mop} kg/ha MOP.
-    Please provide a detailed, explainable, technical summary table explaining the agronomic reasoning 
-    behind these fertilizer quantities. 
-    Make sure the response is JUST the markdown table and a very brief introductory or concluding remark if necessary, formatted nicely.
+    Please provide a detailed, explainable, technical summary writeup.
+    The writeup should include a clear table breaking down the recommendations and a detailed explanation 
+    of the agronomic reasoning behind these specific fertilizer quantities. 
+    Format the response nicely using markdown.
     """
     try:
         response = model.generate_content(prompt)
