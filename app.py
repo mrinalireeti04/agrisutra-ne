@@ -7,7 +7,7 @@ importlib.reload(fpe_engine)
 from fpe_engine import FPEEngine
 
 @st.cache_data
-def get_explainable_summary_table(crop, yield_target, urea, ssp, mop):
+def get_explainable_summary_table(crop, yield_target, urea, ssp, mop, is_organic=False, fym=None, vc=None, psnc=None):
     api_key = st.secrets.get("GEMINI_API_KEY") or os.environ.get("GEMINI_API_KEY")
     if not api_key:
         return "API Key not found. Please set GEMINI_API_KEY in Streamlit secrets or environment variables."
@@ -16,6 +16,17 @@ def get_explainable_summary_table(crop, yield_target, urea, ssp, mop):
     prompt = f"""
     We are recommending fertilizers for {crop} with a target yield of {yield_target} q/ha.
     The recommended amounts are: {urea} kg/ha Urea, {ssp} kg/ha SSP, and {mop} kg/ha MOP.
+    """
+    if is_organic:
+        prompt += f"""
+        The user has also chosen the organic pathway. Instead of all Urea, they can use one of these organic nitrogen alternatives:
+        - FYM: {fym} t/ha
+        - Vermicompost: {vc} t/ha
+        - Enriched Compost (PSNC): {psnc} t/ha
+        Please ensure the summary discusses the benefits of this organic approach, the slow release of nutrients, and how it can be combined with inorganic fertilizers (hybrid approach) for the best yield.
+        """
+        
+    prompt += """
     Please provide a detailed, explainable, technical summary writeup.
     The writeup should include a clear table breaking down the recommendations and a detailed explanation 
     of the agronomic reasoning behind these specific fertilizer quantities. 
@@ -471,12 +482,20 @@ def step4_summary():
     ssp  = st.session_state.P_ssp
     mop  = st.session_state.K_mop
 
-    sch_cols = st.columns(3)
-    schedules = [
-        ("At Sowing (Basal)", f"All SSP ({ssp} kg) + All MOP ({mop} kg) + {round(urea*0.5,1)} kg Urea"),
-        ("30 Days After Sowing", f"{round(urea*0.25,1)} kg Urea"),
-        ("60 Days After Sowing", f"{round(urea*0.25,1)} kg Urea"),
-    ]
+    if "maize" in crop_label.lower():
+        sch_cols = st.columns(3)
+        schedules = [
+            ("At Sowing (Basal)", f"All SSP ({ssp} kg) + All MOP ({mop} kg) + {round(urea*0.5,1)} kg Urea"),
+            ("30 Days After Sowing", f"{round(urea*0.25,1)} kg Urea"),
+            ("60 Days After Sowing", f"{round(urea*0.25,1)} kg Urea"),
+        ]
+    else:
+        # Kholar (legume) gets full basal dose
+        sch_cols = st.columns(1)
+        schedules = [
+            ("At Sowing (Basal)", f"All SSP ({ssp} kg) + All MOP ({mop} kg) + All Urea ({urea} kg)"),
+        ]
+        
     for col, (timing, dose) in zip(sch_cols, schedules):
         col.markdown(f"""
         <div class="panel" style="text-align:center">
@@ -485,10 +504,43 @@ def step4_summary():
         </div>
         """, unsafe_allow_html=True)
 
+    # ── Organic Pathway Decision ──
+    st.markdown("<br>", unsafe_allow_html=True)
+    st.markdown("### 🌱 Organic Pathway Decision")
+    
+    go_organic = st.radio("Do you want to go the organic way?", ["No", "Yes"], horizontal=True)
+
+    fym_t, vc_t, psnc_t = None, None, None
+    if go_organic == "Yes":
+        n_req = st.session_state.FN
+        fym_t = round(n_req / 5, 2)
+        vc_t = round(n_req / 15, 2)
+        psnc_t = round(n_req / 29, 2)
+        
+        st.markdown(f"""
+        <div class="panel">
+            <h4 style="color: #69f0ae;">Organic Alternatives for Nitrogen (choose one):</h4>
+            <ul style="color: #cfd8dc; font-size: 1.1rem; line-height: 1.6;">
+                <li><strong>FYM:</strong> {fym_t} t/ha</li>
+                <li><strong>Vermicompost:</strong> {vc_t} t/ha</li>
+                <li><strong>Enriched Compost:</strong> {psnc_t} t/ha</li>
+            </ul>
+            <div style="margin-top: 1rem; padding-top: 1rem; border-top: 1px solid #252d25;">
+                <p style="color: #81d4fa; font-size: 0.95rem; margin-bottom: 0.5rem;">
+                    <em>Note: Organic sources release nutrients slowly.</em>
+                </p>
+                <p style="color: #81d4fa; font-size: 0.95rem; margin-bottom: 0;">
+                    <em>Suggestion: Combine organic + inorganic for the best yield (hybrid recommendation).</em>
+                </p>
+            </div>
+        </div>
+        """, unsafe_allow_html=True)
+
     st.markdown("<br>", unsafe_allow_html=True)
     st.markdown("### 📊 AI-Driven Explainable Summary")
     with st.spinner("Generating detailed technical summary from AI..."):
-        summary_table = get_explainable_summary_table(crop_label, T, urea, ssp, mop)
+        is_org = (go_organic == "Yes")
+        summary_table = get_explainable_summary_table(crop_label, T, urea, ssp, mop, is_org, fym_t, vc_t, psnc_t)
         st.markdown(summary_table)
 
     st.markdown("<br>", unsafe_allow_html=True)
