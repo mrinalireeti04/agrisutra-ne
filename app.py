@@ -42,7 +42,7 @@ def _get_ai_model():
     if api_key:
         import google.generativeai as genai
         genai.configure(api_key=api_key)
-        model = genai.GenerativeModel("gemini-1.5-pro-latest")
+        model = genai.GenerativeModel("gemini-1.5-flash")
 
         def generate(prompt):
             response = model.generate_content(prompt)
