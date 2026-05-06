@@ -10,7 +10,7 @@ importlib.reload(fpe_engine)
 from fpe_engine import FPEEngine
 
 @st.cache_data
-def get_explainable_summary_table(crop, yield_target, urea, ssp, mop, is_organic=False, fym=None, vc=None, psnc=None, weather_context=None, lime_needed=False):
+def get_explainable_summary_table(crop, yield_target, urea, ssp, mop, is_organic=False, fym=None, vc=None, psnc=None, weather_context=None):
     api_key = st.secrets.get("GEMINI_API_KEY") or os.environ.get("GEMINI_API_KEY")
     if not api_key:
         return "API Key not found. Please set GEMINI_API_KEY in Streamlit secrets or environment variables."
@@ -24,9 +24,7 @@ def get_explainable_summary_table(crop, yield_target, urea, ssp, mop, is_organic
     if weather_context:
         prompt += f"\nLocal weather context: The average monthly rainfall is {weather_context.get('avg_monthly_rainfall_mm')} mm. Please briefly mention how this rainfall might affect the application or nutrient uptake.\n"
         
-    if lime_needed:
-        prompt += "\nThe soil pH is acidic (< 5.5). Please strongly advise the application of agricultural lime to improve soil health and nutrient availability.\n"
-        
+    
     if is_organic:
         prompt += f"""
         The user has also chosen the organic pathway. Instead of all Urea, they can use one of these organic nitrogen alternatives:
@@ -208,7 +206,6 @@ DEFAULTS = {
     # New additions
     "lat": 25.9, "lon": 94.3,
     "land_area": 1.0, "area_unit": "Hectares",
-    "ph": 6.0, "lime_needed": False,
     "weather_context": None,
     "saved_history": False,
 }
@@ -284,12 +281,8 @@ def step1_setup():
         area = st.number_input("Land Area", min_value=0.1, value=1.0, step=0.1)
     with c_unit:
         unit = st.selectbox("Unit", ["Hectares", "Acres"])
-        
-    st.markdown('<div class="divider"></div>', unsafe_allow_html=True)
-    st.markdown("### 🧪 Soil Health (Optional)")
-    ph_val = st.number_input("Soil pH", min_value=1.0, max_value=14.0, value=6.0, step=0.1, help="Leave as 6.0 if unknown")
 
-    st.markdown("</div>", unsafe_allow_html=True)
+    st.markdown('</div>', unsafe_allow_html=True)
 
     st.markdown("<br>", unsafe_allow_html=True)
     if st.button("✅ Confirm & Proceed to Nutrient Selection", type="primary", use_container_width=True):
@@ -298,11 +291,9 @@ def step1_setup():
         with st.spinner("Fetching weather context from NASA POWER..."):
             weather_ctx = input_enricher.get_weather_context(lat, lon)
         
-        lime_needed = input_enricher.evaluate_ph(ph_val)
-        
         go(2, crop=engine_crop, target_yield=float(T),
            lat=lat, lon=lon, land_area=area, area_unit=unit,
-           ph=ph_val, lime_needed=lime_needed, weather_context=weather_ctx,
+           weather_context=weather_ctx,
            N_done=False, P_done=False, K_done=False,
            FN=None, FP=None, FK=None,
            N_urea=None, P_ssp=None, K_mop=None)
@@ -492,7 +483,8 @@ def step4_summary():
         <h3>🏁 Step 4 — Final Fertilizer Summary</h3>
         <p style="color:#78909c">Crop: <strong style="color:#cfd8dc">{crop_label}</strong>
         &nbsp;|&nbsp; Target Yield: <strong style="color:#cfd8dc">{T} q/ha</strong>
-        &nbsp;|&nbsp; Plot Size: <strong style="color:#cfd8dc">{area} {area_unit}</strong></p>
+        &nbsp;|&nbsp; Plot Size: <strong style="color:#cfd8dc">{area} {area_unit}</strong>
+        &nbsp;|&nbsp; Effective Area: <strong style="color:#69f0ae">{round(area / 2.47, 4) if area_unit == 'Acres' else area} ha</strong></p>
     </div>
     """, unsafe_allow_html=True)
     
@@ -542,20 +534,33 @@ def step4_summary():
 
     # Compute Fertilizer products (per ha)
     urea_ha = round(adj_FN / 0.46, 2) if adj_FN else 0
-    ssp_ha = round(adj_FP / 0.16, 2) if adj_FP else 0
-    mop_ha = round(adj_FK / 0.60, 2) if adj_FK else 0
-    
-    # Scale by land area
-    urea_tot = round(urea_ha * area, 2)
-    ssp_tot = round(ssp_ha * area, 2)
-    mop_tot = round(mop_ha * area, 2)
+    ssp_ha  = round(adj_FP / 0.16, 2) if adj_FP else 0
+    mop_ha  = round(adj_FK / 0.60, 2) if adj_FK else 0
+
+    # Convert land area to HECTARES before scaling
+    # 1 hectare = 2.47 acres  →  acres ÷ 2.47 = hectares
+    if area_unit == "Acres":
+        area_ha = round(area / 2.47, 4)
+    else:
+        area_ha = area   # already in hectares
+
+    # Scale by farm area (all totals in kg)
+    urea_tot = round(urea_ha * area_ha, 2)
+    ssp_tot  = round(ssp_ha  * area_ha, 2)
+    mop_tot  = round(mop_ha  * area_ha, 2)
 
     c1, c2, c3 = st.columns(3)
 
+    # Show area_ha for display
+    if area_unit == "Acres":
+        area_display = f"{area} Acres ({area_ha} ha)"
+    else:
+        area_display = f"{area_ha} ha"
+
     for col, nut, val, conv, conv_lbl, unit in [
-        (c1, "N", adj_FN,  urea_tot,"Urea",  f"kg N/ha"),
-        (c2, "P", adj_FP,  ssp_tot, "SSP",   f"kg P₂O₅/ha"),
-        (c3, "K", adj_FK,  mop_tot, "MOP",   f"kg K₂O/ha"),
+        (c1, "N", adj_FN,  urea_tot,"Urea",  "kg N/ha"),
+        (c2, "P", adj_FP,  ssp_tot, "SSP",   "kg P₂O₅/ha"),
+        (c3, "K", adj_FK,  mop_tot, "MOP",   "kg K₂O/ha"),
     ]:
         meta = NUTRIENT_META[nut]
         col.markdown(f"""
@@ -564,7 +569,7 @@ def step4_summary():
             <div class="s-label">{meta['label']}</div>
             <div class="s-val">{val}</div>
             <div class="s-label" style="margin-top:0.1rem">{unit}</div>
-            <div class="s-conv">→ {conv_lbl} (Total): <strong>{conv} kg</strong></div>
+            <div class="s-conv">→ {conv_lbl} for {area_display}: <strong>{conv} kg</strong></div>
         </div>
         """, unsafe_allow_html=True)
 
@@ -575,15 +580,28 @@ def step4_summary():
     if "maize" in crop_label.lower():
         sch_cols = st.columns(3)
         schedules = [
-            ("At Sowing (Basal)", f"All SSP ({ssp_tot} kg) + All MOP ({mop_tot} kg) + {round(urea_tot*0.5,1)} kg Urea"),
-            ("30 Days After Sowing", f"{round(urea_tot*0.25,1)} kg Urea"),
-            ("60 Days After Sowing", f"{round(urea_tot*0.25,1)} kg Urea"),
+            (
+                "🌱 Final Land Preparation (Basal)",
+                f"All SSP ({ssp_tot} kg) + All MOP ({mop_tot} kg) + "
+                f"{round(urea_tot * 0.50, 1)} kg Urea (50% of total Urea)"
+            ),
+            (
+                "📅 30 DAS — Knee-High Stage",
+                f"{round(urea_tot * 0.25, 1)} kg Urea (25% of total Urea)"
+            ),
+            (
+                "📅 60 Days After Sowing",
+                f"{round(urea_tot * 0.25, 1)} kg Urea (25% of total Urea)"
+            ),
         ]
     else:
         # Kholar (legume) gets full basal dose
         sch_cols = st.columns(1)
         schedules = [
-            ("At Sowing (Basal)", f"All SSP ({ssp_tot} kg) + All MOP ({mop_tot} kg) + All Urea ({urea_tot} kg)"),
+            (
+                "🌱 At Sowing (Basal — Full Dose)",
+                f"All SSP ({ssp_tot} kg) + All MOP ({mop_tot} kg) + All Urea ({urea_tot} kg)"
+            ),
         ]
         
     for col, (timing, dose) in zip(sch_cols, schedules):
@@ -614,9 +632,9 @@ def step4_summary():
     st.markdown("### 📊 AI-Driven Explainable Summary")
     with st.spinner("Generating detailed technical summary from AI..."):
         summary_table = get_explainable_summary_table(
-            crop_label, T, urea_tot, ssp_tot, mop_tot, 
-            is_org, fym_t, vc_t, psnc_t, 
-            st.session_state.weather_context, st.session_state.lime_needed
+            crop_label, T, urea_tot, ssp_tot, mop_tot,
+            is_org, fym_t, vc_t, psnc_t,
+            st.session_state.weather_context
         )
         st.markdown(summary_table)
 
