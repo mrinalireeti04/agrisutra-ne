@@ -53,7 +53,6 @@ def _get_ai_model():
     return None, "no_credentials"
 
 
-@st.cache_data
 def get_explainable_summary_table(crop, yield_target, urea, ssp, mop, is_organic=False, fym=None, vc=None, psnc=None, weather_context=None):
     generate_fn, auth_mode = _get_ai_model()
 
