@@ -1,7 +1,10 @@
 streamlit
 pydantic
-google-generativeai
 requests>=2.31.0
 fpdf2>=2.7.9
 pandas>=2.0.0
 plotly>=5.18.0
+# Vertex AI SDK — uses ADC (Application Default Credentials)
+google-cloud-aiplatform>=1.38.0
+# Fallback: direct Gemini API key (used if GCP_PROJECT_ID not set)
+google-generativeai

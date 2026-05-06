@@ -5,44 +5,91 @@ import fpe_engine
 import input_enricher
 import output_enricher
 import delivery
-import google.generativeai as genai
 importlib.reload(fpe_engine)
 from fpe_engine import FPEEngine
 
+# ── AI client: prefer Vertex AI (ADC) → fall back to Gemini API key ──
+def _get_ai_model():
+    """
+    Returns a callable generate(prompt) -> str.
+    Priority:
+      1. Vertex AI + ADC  (if GCP_PROJECT_ID is set in secrets / env)
+      2. Gemini API key   (if GEMINI_API_KEY is set in secrets / env)
+    """
+    project_id = (st.secrets.get("GCP_PROJECT_ID") or
+                  os.environ.get("GOOGLE_CLOUD_PROJECT") or
+                  os.environ.get("GCP_PROJECT_ID"))
+
+    if project_id:
+        # ── Vertex AI path (uses ADC automatically) ──
+        try:
+            import vertexai
+            from vertexai.generative_models import GenerativeModel as VertexModel
+            location = st.secrets.get("GCP_LOCATION") or os.environ.get("GCP_LOCATION", "us-central1")
+            vertexai.init(project=project_id, location=location)
+            model = VertexModel("gemini-1.5-pro")
+
+            def generate(prompt):
+                response = model.generate_content(prompt)
+                return response.text
+
+            return generate, "Vertex AI (ADC)"
+        except Exception as e:
+            return None, f"Vertex AI init failed: {e}"
+
+    # ── Fallback: Gemini API key ──
+    api_key = st.secrets.get("GEMINI_API_KEY") or os.environ.get("GEMINI_API_KEY")
+    if api_key:
+        import google.generativeai as genai
+        genai.configure(api_key=api_key)
+        model = genai.GenerativeModel("gemini-1.5-pro-latest")
+
+        def generate(prompt):
+            response = model.generate_content(prompt)
+            return response.text
+
+        return generate, "Gemini API Key"
+
+    return None, "no_credentials"
+
+
 @st.cache_data
 def get_explainable_summary_table(crop, yield_target, urea, ssp, mop, is_organic=False, fym=None, vc=None, psnc=None, weather_context=None):
-    api_key = st.secrets.get("GEMINI_API_KEY") or os.environ.get("GEMINI_API_KEY")
-    if not api_key:
-        return "API Key not found. Please set GEMINI_API_KEY in Streamlit secrets or environment variables."
-    genai.configure(api_key=api_key)
-    model = genai.GenerativeModel('gemini-1.5-pro-latest')
+    generate_fn, auth_mode = _get_ai_model()
+
+    if generate_fn is None:
+        if auth_mode == "no_credentials":
+            return (
+                "⚠️ **AI summary unavailable.**\n\n"
+                "Set one of the following in `.streamlit/secrets.toml`:\n"
+                "- `GCP_PROJECT_ID = \"your-project\"` — uses ADC (recommended locally)\n"
+                "- `GEMINI_API_KEY = \"AIza...\"` — uses direct API key"
+            )
+        return f"⚠️ Could not initialise AI model: {auth_mode}"
+
     prompt = f"""
     We are recommending fertilizers for {crop} with a target yield of {yield_target} q/ha.
-    The recommended amounts are: {urea} kg/ha Urea, {ssp} kg/ha SSP, and {mop} kg/ha MOP.
+    The recommended amounts are: {urea} kg Urea, {ssp} kg SSP, and {mop} kg MOP (total for the farm).
     """
-    
     if weather_context:
-        prompt += f"\nLocal weather context: The average monthly rainfall is {weather_context.get('avg_monthly_rainfall_mm')} mm. Please briefly mention how this rainfall might affect the application or nutrient uptake.\n"
-        
-    
+        prompt += (f"\nLocal weather context: The average monthly rainfall is "
+                   f"{weather_context.get('avg_monthly_rainfall_mm')} mm. "
+                   f"Please briefly mention how this affects application timing and nutrient uptake.\n")
     if is_organic:
         prompt += f"""
-        The user has also chosen the organic pathway. Instead of all Urea, they can use one of these organic nitrogen alternatives:
+        The user has also chosen the organic pathway. Organic nitrogen alternatives per ha:
         - FYM: {fym} t/ha
         - Vermicompost: {vc} t/ha
         - Enriched Compost (PSNC): {psnc} t/ha
-        Please ensure the summary discusses the benefits of this organic approach, the slow release of nutrients, and how it can be combined with inorganic fertilizers (hybrid approach) for the best yield.
+        Discuss the benefits of organic approach, slow nutrient release, and hybrid (organic+inorganic) strategy.
         """
-        
     prompt += """
-    Please provide a detailed, explainable, technical summary writeup.
-    The writeup should include a clear table breaking down the recommendations and a detailed explanation 
-    of the agronomic reasoning behind these specific fertilizer quantities. 
-    Format the response nicely using markdown.
+    Provide a detailed, explainable, technical summary.
+    Include a clear markdown table breaking down the recommendations and the agronomic reasoning.
+    Format the response in clean markdown.
     """
     try:
-        response = model.generate_content(prompt)
-        return response.text
+        return generate_fn(prompt)
     except Exception as e:
         return f"Could not generate summary: {e}"
 
