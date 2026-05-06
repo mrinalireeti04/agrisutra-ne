@@ -1,14 +1,5 @@
 import requests
 
-def evaluate_ph(ph_value):
-    """
-    Evaluates the soil pH and determines if lime application is needed.
-    Returns a boolean flag. The FPE engine does not see this.
-    """
-    if ph_value is None:
-        return False
-    return ph_value < 5.5
-
 def get_weather_context(lat, lon):
     """
     Fetches monthly rainfall for the given coordinates using NASA POWER API.
