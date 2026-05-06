@@ -163,3 +163,51 @@ cython_debug/
 
 # Streamlit secrets
 .streamlit/secrets.toml
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Google Cloud / Application Default Credentials (ADC)
+# ─────────────────────────────────────────────────────────────────────────────
+
+# ADC credential file produced by:
+#   gcloud auth application-default login
+#   bash <(curl -sSL https://storage.googleapis.com/.../setup_adc.sh)
+application_default_credentials.json
+
+# Any GCP / Firebase service-account key files (JSON format)
+*service_account*.json
+*service-account*.json
+*serviceaccount*.json
+*credentials*.json
+*keyfile*.json
+*key_file*.json
+*gcloud-key*.json
+*sa-key*.json
+
+# gcloud SDK local config directory (if ever inside the project)
+.gcloud/
+gcloud/
+
+# Google OAuth / token cache files
+.oauth2_tokens
+oauth2_tokens
+
+# Google Cloud SDK auth helper
+.config/gcloud/
+
+# Any generic secret / credential file patterns
+*.pem
+*.p12
+*.pfx
+secrets.json
+secret.json
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Project-specific runtime files (not source code)
+# ─────────────────────────────────────────────────────────────────────────────
+
+# SQLite farmer history database (generated at runtime)
+history.db
+
+# Generated PDF prescriptions
+prescription_*.pdf
+agrisutra_prescription.pdf
