@@ -1,0 +1,44 @@
+name: agrisutra_ne
+description: AI-powered STCR fertilizer recommendations for Northeast India farmers.
+publish_to: "none"
+version: 1.0.0+1
+
+environment:
+  sdk: ">=3.0.0 <4.0.0"
+
+dependencies:
+  flutter:
+    sdk: flutter
+
+  # ── HTTP ──────────────────────────────────────────────────────────────────
+  http: ^1.2.1
+
+  # ── State management (simple, no over-engineering for this app) ──────────
+  provider: ^6.1.2
+
+  # ── UI & Fonts ────────────────────────────────────────────────────────────
+  google_fonts: ^6.2.1          # Poppins — clear on cheap screens
+  flutter_animate: ^4.5.0       # Smooth slide/fade screen transitions
+  lottie: ^3.1.0                # Animated plant loader + success checkmark
+
+  # ── Utils ────────────────────────────────────────────────────────────────
+  shared_preferences: ^2.2.3    # Store farmer profile (name, district, acres)
+  intl: ^0.19.0                 # Date/number formatting
+  url_launcher: ^6.2.6          # Share sheet & external links
+
+  share_plus: ^9.0.0
+  
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^3.0.0
+
+flutter:
+  uses-material-design: true
+
+  assets:
+    - assets/images/
+    - assets/animations/
+
+  # fonts: block is intentionally empty — we use google_fonts package at runtime
+  # which downloads Poppins and caches it. No manual font files needed.

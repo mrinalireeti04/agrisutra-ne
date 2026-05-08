@@ -1,0 +1,75 @@
+# render.yaml — Render Blueprint for AgriSutra NE
+# Deploy all three services from the single repo: mrinalireeti04/agrisutra-ne
+#
+# Services:
+#   1. agrisutra-backend  — FastAPI (Web Service)
+#   2. agrisutra-streamlit — Streamlit app (Web Service)
+#   3. agrisutra-flutter  — Flutter web build (Static Site)
+#
+# After pushing this file, go to https://dashboard.render.com
+# → "New" → "Blueprint" → connect this repo.
+
+services:
+
+  # ──────────────────────────────────────────────────────────────
+  # 1. FastAPI Backend
+  # ──────────────────────────────────────────────────────────────
+  - type: web
+    name: agrisutra-backend
+    runtime: python
+    region: oregon            # change to "frankfurt" or "singapore" if preferred
+    plan: free
+    rootDir: .                # run from repo root so `backend` is a package
+    buildCommand: pip install -r backend/requirements.txt
+    startCommand: uvicorn backend.main:app --host 0.0.0.0 --port $PORT
+    healthCheckPath: /health
+    envVars:
+      - key: GOOGLE_API_KEY
+        sync: false           # set manually in Render dashboard — DO NOT commit the value
+      - key: PYTHON_VERSION
+        value: "3.11"
+
+  # ──────────────────────────────────────────────────────────────
+  # 2. Streamlit App
+  # ──────────────────────────────────────────────────────────────
+  - type: web
+    name: agrisutra-streamlit
+    runtime: python
+    region: oregon
+    plan: free
+    rootDir: .
+    buildCommand: pip install -r requirements.txt
+    startCommand: >
+      streamlit run app.py
+      --server.port $PORT
+      --server.address 0.0.0.0
+      --server.headless true
+      --server.enableCORS false
+      --server.enableXsrfProtection false
+    envVars:
+      - key: GOOGLE_API_KEY
+        sync: false           # set manually in Render dashboard
+      - key: PYTHON_VERSION
+        value: "3.11"
+
+  # ──────────────────────────────────────────────────────────────
+  # 3. Flutter Web — Static Site
+  #    IMPORTANT: You must build Flutter web LOCALLY first and
+  #    commit flutter_app/build/web/ to the repo before deploying.
+  #    See DEPLOYMENT_GUIDE.md for exact steps.
+  # ──────────────────────────────────────────────────────────────
+  - type: web
+    name: agrisutra-flutter
+    runtime: static
+    region: oregon
+    plan: free
+    rootDir: flutter_app/build/web   # pre-built output committed to repo
+    staticPublishPath: .
+    headers:
+      - path: /*
+        name: Cache-Control
+        value: no-cache
+    routes:
+      - type: rewrite
+        source: /*
+        destination: /index.html      # required for Flutter web SPA routing

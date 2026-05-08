@@ -8,7 +8,7 @@ __pycache__/
 
 # Distribution / packaging
 .Python
-build/
+/build/          # root-level Python build only — flutter_app/build/web/ is intentionally tracked
 develop-eggs/
 dist/
 downloads/
@@ -211,3 +211,23 @@ history.db
 # Generated PDF prescriptions
 prescription_*.pdf
 agrisutra_prescription.pdf
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Flutter — exclude build intermediates, keep only build/web/ (committed for Render)
+# ─────────────────────────────────────────────────────────────────────────────
+
+# Flutter tool / dart output inside flutter_app
+flutter_app/.dart_tool/
+flutter_app/.flutter-plugins
+flutter_app/.flutter-plugins-dependencies
+flutter_app/.packages
+flutter_app/pubspec.lock     # optional: keep if you want reproducible builds
+
+# Flutter build artefacts — keep build/web/ but ignore everything else
+flutter_app/build/android/
+flutter_app/build/ios/
+flutter_app/build/linux/
+flutter_app/build/macos/
+flutter_app/build/windows/
+flutter_app/build/app/
+# flutter_app/build/web/ is intentionally NOT ignored — Render serves it as a Static Site
