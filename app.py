@@ -318,15 +318,14 @@ def step1_setup():
 
     st.markdown('<div class="divider"></div>', unsafe_allow_html=True)
     st.markdown("### 🌍 Farm Details")
-    c_lat, c_lon, c_area, c_unit = st.columns(4)
+    c_lat, c_lon, c_area = st.columns(3)
     with c_lat:
         lat = st.number_input("Latitude", value=25.9, step=0.01, help="Kiphire approx: 25.9")
     with c_lon:
         lon = st.number_input("Longitude", value=94.3, step=0.01, help="Kiphire approx: 94.3")
     with c_area:
-        area = st.number_input("Land Area", min_value=0.1, value=1.0, step=0.1)
-    with c_unit:
-        unit = st.selectbox("Unit", ["Hectares", "Acres"])
+        area = st.number_input("Land Area (Hectares)", min_value=0.1, value=1.0, step=0.1)
+        unit = "Hectares"
 
     st.markdown('</div>', unsafe_allow_html=True)
 
@@ -529,8 +528,7 @@ def step4_summary():
         <h3>🏁 Step 4 — Final Fertilizer Summary</h3>
         <p style="color:#78909c">Crop: <strong style="color:#cfd8dc">{crop_label}</strong>
         &nbsp;|&nbsp; Target Yield: <strong style="color:#cfd8dc">{T} q/ha</strong>
-        &nbsp;|&nbsp; Plot Size: <strong style="color:#cfd8dc">{area} {area_unit}</strong>
-        &nbsp;|&nbsp; Effective Area: <strong style="color:#69f0ae">{round(area / 2.47, 4) if area_unit == 'Acres' else area} ha</strong></p>
+        &nbsp;|&nbsp; Plot Size: <strong style="color:#cfd8dc">{area} {area_unit}</strong></p>
     </div>
     """, unsafe_allow_html=True)
     
@@ -583,12 +581,7 @@ def step4_summary():
     ssp_ha  = round(adj_FP / 0.16, 2) if adj_FP else 0
     mop_ha  = round(adj_FK / 0.60, 2) if adj_FK else 0
 
-    # Convert land area to HECTARES before scaling
-    # 1 hectare = 2.47 acres  →  acres ÷ 2.47 = hectares
-    if area_unit == "Acres":
-        area_ha = round(area / 2.47, 4)
-    else:
-        area_ha = area   # already in hectares
+    area_ha = area   # already in hectares
 
     # Scale by farm area (all totals in kg)
     urea_tot = round(urea_ha * area_ha, 2)
@@ -597,11 +590,7 @@ def step4_summary():
 
     c1, c2, c3 = st.columns(3)
 
-    # Show area_ha for display
-    if area_unit == "Acres":
-        area_display = f"{area} Acres ({area_ha} ha)"
-    else:
-        area_display = f"{area_ha} ha"
+    area_display = f"{area_ha} ha"
 
     for col, nut, val, conv, conv_lbl, unit in [
         (c1, "N", adj_FN,  urea_tot,"Urea",  "kg N/ha"),
@@ -627,17 +616,17 @@ def step4_summary():
         sch_cols = st.columns(3)
         schedules = [
             (
-                "🌱 Final Land Preparation (Basal)",
+                "🌱 50 percent nitrogen as basal (During final land preparation)",
                 f"All SSP ({ssp_tot} kg) + All MOP ({mop_tot} kg) + "
-                f"{round(urea_tot * 0.50, 1)} kg Urea (50% of total Urea)"
+                f"{round(urea_tot * 0.50, 1)} kg Urea"
             ),
             (
-                "📅 30 DAS — Knee-High Stage",
-                f"{round(urea_tot * 0.25, 1)} kg Urea (25% of total Urea)"
+                "📅 25 percent at knee high stage 30 Days after sowing",
+                f"{round(urea_tot * 0.25, 1)} kg Urea"
             ),
             (
-                "📅 60 Days After Sowing",
-                f"{round(urea_tot * 0.25, 1)} kg Urea (25% of total Urea)"
+                "📅 Next 25 percent at 60 Days after sowing",
+                f"{round(urea_tot * 0.25, 1)} kg Urea"
             ),
         ]
     else:
