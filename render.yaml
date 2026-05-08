@@ -54,22 +54,5 @@ services:
 
   # ──────────────────────────────────────────────────────────────
   # 3. Flutter Web — Static Site
-  #    IMPORTANT: You must build Flutter web LOCALLY first and
-  #    commit flutter_app/build/web/ to the repo before deploying.
-  #    See DEPLOYMENT_GUIDE.md for exact steps.
+  #    (Removed: You are using the Android APK instead of web deployment)
   # ──────────────────────────────────────────────────────────────
-  - type: web
-    name: agrisutra-flutter
-    runtime: static
-    region: oregon
-    plan: free
-    rootDir: flutter_app/build/web   # pre-built output committed to repo
-    staticPublishPath: .
-    headers:
-      - path: /*
-        name: Cache-Control
-        value: no-cache
-    routes:
-      - type: rewrite
-        source: /*
-        destination: /index.html      # required for Flutter web SPA routing
